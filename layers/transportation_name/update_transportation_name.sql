@@ -32,7 +32,8 @@ SELECT hl.geometry,
        hl.z_order
 FROM osm_highway_linestring hl
          LEFT JOIN osm_route_member rm ON (rm.member = hl.osm_id)
-         WHERE rm.route = 'road'
+         WHERE hl.public_transport != 'platform'
+             AND (hl.name IS NOT NULL OR hl.ref IS NOT NULL OR rm.ref IS NOT NULL)
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_name_network_geometry_idx ON osm_transportation_name_network USING gist (geometry);
 
