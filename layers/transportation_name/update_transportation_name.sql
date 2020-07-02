@@ -15,7 +15,6 @@ SELECT hl.geometry,
        hl.osm_id,
        CASE WHEN length(hl.name) > 15 THEN osml10n_street_abbrev_all(hl.name) ELSE hl.name END         AS "name",
        CASE WHEN length(hl.name_en) > 15 THEN osml10n_street_abbrev_en(hl.name_en) ELSE hl.name_en END AS "name_en",
-       CASE WHEN length(hl.name_de) > 15 THEN osml10n_street_abbrev_de(hl.name_de) ELSE hl.name_de END AS "name_de",
        hl.tags,
        rm.network_type,
        CASE
@@ -33,9 +32,10 @@ SELECT hl.geometry,
        hl.z_order
 FROM osm_highway_linestring hl
          LEFT JOIN osm_route_member rm ON (rm.member = hl.osm_id)
+         WHERE hl.public_transport != 'platform'
+             AND (hl.name IS NOT NULL OR hl.ref IS NOT NULL OR rm.ref IS NOT NULL)
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_name_network_geometry_idx ON osm_transportation_name_network USING gist (geometry);
-
 
 -- etldoc: osm_transportation_name_network ->  osm_transportation_name_linestring
 CREATE MATERIALIZED VIEW osm_transportation_name_linestring AS
@@ -44,7 +44,6 @@ SELECT (ST_Dump(geometry)).geom                AS geometry,
        NULL::bigint                            AS osm_id,
        name,
        name_en,
-       name_de,
        tags || get_basic_names(tags, geometry) AS "tags",
        ref,
        highway,
@@ -58,9 +57,8 @@ FROM (
          SELECT ST_LineMerge(ST_Collect(geometry)) AS geometry,
                 name,
                 name_en,
-                name_de,
                 hstore(string_agg(nullif(slice_language_tags(tags ||
-                                                             hstore(ARRAY ['name', name, 'name:en', name_en, 'name:de', name_de]))::text,
+                                                             hstore(ARRAY ['name', name, 'name:en', name_en]))::text,
                                          ''), ','))
                                                    AS "tags",
                 ref,
@@ -75,7 +73,7 @@ FROM (
          WHERE ("rank" = 1 OR "rank" IS NULL)
            AND (name <> '' OR ref <> '')
            AND NULLIF(highway, '') IS NOT NULL
-         GROUP BY name, name_en, name_de, ref, highway, construction, "level", layer, indoor, network_type
+         GROUP BY name, name_en, ref, highway, construction, "level", layer, indoor, network_type
      ) AS highway_union
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_name_linestring_geometry_idx ON osm_transportation_name_linestring USING gist (geometry);
@@ -91,7 +89,6 @@ SELECT ST_Simplify(geometry, 50) AS geometry,
        osm_id,
        name,
        name_en,
-       name_de,
        tags,
        ref,
        highway,
@@ -115,7 +112,6 @@ SELECT ST_Simplify(geometry, 120) AS geometry,
        osm_id,
        name,
        name_en,
-       name_de,
        tags,
        ref,
        highway,
@@ -139,7 +135,6 @@ SELECT ST_Simplify(geometry, 200) AS geometry,
        osm_id,
        name,
        name_en,
-       name_de,
        tags,
        ref,
        highway,
@@ -163,7 +158,6 @@ SELECT ST_Simplify(geometry, 500) AS geometry,
        osm_id,
        name,
        name_en,
-       name_de,
        tags,
        ref,
        highway,
